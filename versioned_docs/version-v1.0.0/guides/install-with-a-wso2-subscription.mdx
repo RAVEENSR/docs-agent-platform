@@ -23,7 +23,7 @@ The rest of this page writes the project as `<project>`.
 
 | | Community | WSO2 subscription |
 |---|---|---|
-| Helm charts | `oci://ghcr.io/wso2/<chart>` | `oci://registry.wso2.com/<project>/<chart>` |
+| Helm charts | `oci://ghcr.io/wso2/<chart>` | `oci://registry.wso2.com/<project>/helm-charts/<chart>` |
 | Agent Manager images | `ghcr.io/wso2/<image>` | `registry.wso2.com/<project>/<image>` |
 | Chart version | `1.0.0` | `1.0.0-<update level>` |
 | Image tag | `v1.0.0` | `1.0.0.<update level>` |
@@ -126,7 +126,7 @@ printf 'Registry username: ' && read -r AMP_REGISTRY_USERNAME
 printf 'Registry token: ' && stty -echo && read -r AMP_REGISTRY_PASSWORD; stty echo; echo
 printf '%s' "$AMP_REGISTRY_PASSWORD" | docker login registry.wso2.com --username "$AMP_REGISTRY_USERNAME" --password-stdin
 cosign verify --key cosign.pub registry.wso2.com/<project>/amp-api:1.0.0.<update level>
-cosign verify --key cosign.pub registry.wso2.com/<project>/wso2-agent-manager:1.0.0-<update level>
+cosign verify --key cosign.pub registry.wso2.com/<project>/helm-charts/wso2-agent-manager:1.0.0-<update level>
 ```
 
 A valid signature prints the verified claims for the image or chart. An error means the artifact was not signed by WSO2 or has changed since it was signed.

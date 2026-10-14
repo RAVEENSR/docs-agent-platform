@@ -173,7 +173,7 @@ Replace `<update level>` and `<project>` with your values from [Install with a W
 
 ```bash
 export VERSION="1.0.0-<update level>"
-export HELM_CHART_REGISTRY="registry.wso2.com/<project>"
+export HELM_CHART_REGISTRY="registry.wso2.com/<project>/helm-charts"
 printf 'Registry username: ' && read -r AMP_REGISTRY_USERNAME
 printf 'Registry token: ' && stty -echo && read -r AMP_REGISTRY_PASSWORD; stty echo; echo
 printf '%s' "$AMP_REGISTRY_PASSWORD" | helm registry login registry.wso2.com --username "$AMP_REGISTRY_USERNAME" --password-stdin
