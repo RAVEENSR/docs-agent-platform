@@ -104,42 +104,45 @@ helm show chart "$REG/wso2-agent-manager" --version "$VERSION"
 helm show chart "oci://$GW_REGISTRY/helm-charts/gateway" --version "$GW_VERSION"
 ```
 
-Both `helm show chart` commands print the chart. Create the `wso2-registry-credentials` Secret in the namespaces that run Agent Manager images, including the `workflows-<org>` namespace of every organization:
+Both `helm show chart` commands print the chart. Write the credentials to files that only you can read, so the token never appears on a command line:
+
+```bash
+SECRET_DIR="$(mktemp -d)"
+chmod 700 "$SECRET_DIR"
+printf '{"auths":{"registry.wso2.com":{"auth":"%s"}}}' \
+  "$(printf '%s:%s' "$AMP_REGISTRY_USERNAME" "$AMP_REGISTRY_PASSWORD" | base64 | tr -d '\n')" \
+  > "$SECRET_DIR/config.json"
+printf '%s' "$AMP_REGISTRY_USERNAME" > "$SECRET_DIR/username"
+printf '%s' "$AMP_REGISTRY_PASSWORD" > "$SECRET_DIR/password"
+```
+
+Create the `wso2-registry-credentials` Secret in the namespaces that run Agent Manager images, including the `workflows-<org>` namespace of every organization. In a multi-cluster installation, run the loop against each cluster that has these namespaces, with `kubectl --context`:
 
 ```bash
 for ns in "$AMP_NS" openchoreo-observability-plane \
     $(kubectl get namespaces -o name | sed -n 's|^namespace/\(workflows-.*\)|\1|p'); do
-  kubectl create secret docker-registry wso2-registry-credentials \
+  kubectl create secret generic wso2-registry-credentials \
     --namespace "$ns" \
-    --docker-server=registry.wso2.com \
-    --docker-username="$AMP_REGISTRY_USERNAME" \
-    --docker-password="$AMP_REGISTRY_PASSWORD" \
+    --type=kubernetes.io/dockerconfigjson \
+    --from-file=.dockerconfigjson="$SECRET_DIR/config.json" \
     --dry-run=client -o yaml | kubectl apply -f -
 done
 ```
 
-The gateway has its own Secret, `wso2-gateway-registry-credentials`. The Gateway Operator reads it from its namespace to pull the gateway chart, and each gateway reads it from its own namespace to pull its images. Besides the Docker configuration, the Secret holds plain `username` and `password` keys, which the operator uses for the chart. Create it in the operator namespace and in every namespace that contains an APIGateway, egress gateways included:
+The gateway has its own Secret, `wso2-gateway-registry-credentials`. The Gateway Operator reads it from its namespace to pull the gateway chart, and each gateway reads it from its own namespace to pull its images. Besides the Docker configuration, the Secret holds plain `username` and `password` keys, which the operator uses for the chart. Create it in the operator namespace and in every namespace that contains an APIGateway, egress gateways included, then delete the files:
 
 ```bash
-GW_SECRET_DIR="$(mktemp -d)"
-chmod 700 "$GW_SECRET_DIR"
-printf '{"auths":{"registry.wso2.com":{"auth":"%s"}}}' \
-  "$(printf '%s:%s' "$AMP_REGISTRY_USERNAME" "$AMP_REGISTRY_PASSWORD" | base64 | tr -d '\n')" \
-  > "$GW_SECRET_DIR/config.json"
-printf '%s' "$AMP_REGISTRY_USERNAME" > "$GW_SECRET_DIR/username"
-printf '%s' "$AMP_REGISTRY_PASSWORD" > "$GW_SECRET_DIR/password"
-
 for ns in "$DP_NS" $(kubectl --context "$GATEWAY_CONTEXT" get apigateways -A \
     -o jsonpath='{range .items[*]}{.metadata.namespace}{"\n"}{end}' | sort -u); do
   kubectl --context "$GATEWAY_CONTEXT" create secret generic wso2-gateway-registry-credentials \
     --namespace "$ns" \
     --type=kubernetes.io/dockerconfigjson \
-    --from-file=.dockerconfigjson="$GW_SECRET_DIR/config.json" \
-    --from-file=username="$GW_SECRET_DIR/username" \
-    --from-file=password="$GW_SECRET_DIR/password" \
+    --from-file=.dockerconfigjson="$SECRET_DIR/config.json" \
+    --from-file=username="$SECRET_DIR/username" \
+    --from-file=password="$SECRET_DIR/password" \
     --dry-run=client -o yaml | kubectl --context "$GATEWAY_CONTEXT" apply -f -
 done
-rm -rf "$GW_SECRET_DIR"
+rm -rf "$SECRET_DIR"
 ```
 
 ## Step 2: Back up
@@ -410,7 +413,7 @@ There is no chart-only downgrade after the database migration. Keep the installa
    ```
 
 3. Roll back the Agent Manager and extension releases with `helm rollback`. The gateway extension's bootstrap job also runs on rollback and needs Agent Manager to be reachable. If it fails, rerun the rollback.
-4. Restore the Gateway Operator pins to chart 0.11.0, gateway chart 1.2.2, and images 1.2.1 from `ghcr.io`. For a WSO2 subscription, also set the gateway chart name and image repositories back to `ghcr.io`. For each gateway, restore the controller data from its Step 2 backup and redeploy it. A controller database that gateway 2026.10.0 migrated to version 6 cannot be used with 1.2.1.
+4. Roll back the `gateway-operator` release to its revision before Step 6 (`helm history gateway-operator -n "$DP_NS"`). This restores chart 0.11.0 and all its v1.0.0 values, including the gateway chart 1.2.2 and images 1.2.1 from `ghcr.io`, and removes any registry values set in Step 6. For each gateway, restore the controller data from its Step 2 backup and redeploy it. A controller database that gateway 2026.10.0 migrated to version 6 cannot be used with 1.2.1.
 5. Restore OpenChoreo and Thunder as described in [Upgrade platform dependencies](./platform-dependencies.mdx).
 
 Restoring the database discards writes made after the backup. Repeat the Step 8 checks before you resume service.

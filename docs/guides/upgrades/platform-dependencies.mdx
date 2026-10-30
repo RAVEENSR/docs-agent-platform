@@ -31,11 +31,11 @@ The OpenChoreo CRDs are identical in 1.2.0 and 1.2.8, so the OpenChoreo upgrade 
 
 ### Unchanged components
 
-The target installer keeps these pins from v1.0.0. Verify them and keep their configuration. Do not upgrade them as part of this procedure.
+The target installer keeps these pins from v1.0.0. Verify them and keep their configuration. Do not move them to a new version as part of this procedure.
 
 | Component | Pin | Notes |
 | --- | --- | --- |
-| `observability-logs-opensearch` | 0.5.3 | Verify logs and storage. |
+| `observability-logs-opensearch` | 0.5.3 | Keep the version. Step 4 upgrades it with new log routing values. |
 | `observability-tracing-opensearch` | 0.6.0 | The default release name is `observability-traces-opensearch`. |
 | `observability-metrics-prometheus` | 0.6.1 | Verify metrics and persistence. |
 | `cert-manager` | v1.19.2 | Verify certificates and issuers. |
@@ -67,9 +67,10 @@ If your installation runs OpenChoreo 1.1.x or earlier, first complete the [OpenC
 
 ## Step 3: Upgrade kgateway to v2.3.11
 
-kgateway is the network gateway for the OpenChoreo planes. The `kgateway-crds` chart ships its CRDs as templates, so `helm upgrade` updates them. Upgrade it before `kgateway`:
+kgateway is the network gateway for the OpenChoreo planes. The `kgateway-crds` chart ships its CRDs as templates, so `helm upgrade` updates them. Upgrade it before `kgateway`. Set `OC_CONTEXT` to the context of the cluster that runs kgateway, which is the Control Plane cluster in the default installation:
 
 ```bash
+export OC_CONTEXT="<control-plane-context>"
 helm upgrade kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
   --version v2.3.11 -n openchoreo-control-plane --kube-context "$OC_CONTEXT" \
   --reset-then-reuse-values --timeout 5m --wait
@@ -78,9 +79,6 @@ helm upgrade kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
   --reset-then-reuse-values --timeout 5m --wait
 kubectl --context "$OC_CONTEXT" get pods -n openchoreo-control-plane | grep kgateway
 ```
-
-Set `OC_CONTEXT` to the context of the cluster that runs kgateway, which is the Control Plane cluster in the default installation.
-
 ## Step 4: Upgrade the OpenChoreo planes to 1.2.8
 
 Upgrade one plane at a time, in this order, and verify each one before you continue:
@@ -200,7 +198,7 @@ The values file sets the Fluent Bit OpenSearch host, port 11443, and the SNI hos
 - Control Plane: the API responds, controllers are healthy, and existing projects, components, and release bindings reconcile.
 - Data Plane: the cluster agent connects, and existing workloads and routes work.
 - Workflow Plane: the cluster agent and controller are healthy, and a representative build succeeds.
-- Observability Plane: the observer is healthy, logs, metrics, and traces arrive, and a monitor run completes.
+- Observability Plane: the observer is healthy, and logs, metrics, and traces arrive. Monitor runs work again after the observability extension upgrade in Step 5 of the main guide, which adds the exempt label to the observer.
 
 ## Step 5: Upgrade platform Thunder to 1.0.2
 
