@@ -175,14 +175,23 @@ Use this command for the Observability Plane instead of the generic one above, t
 
 ### Route log collection through the Observability Plane gateway
 
-Fluent Bit now sends logs to OpenSearch through the Observability Plane gateway's TLS passthrough listener, which also serves Fluent Bit running in other clusters. Apply the route, then point the logs module at it:
+Fluent Bit now sends logs to OpenSearch through the Observability Plane gateway's TLS passthrough listener, which also serves Fluent Bit running in other clusters. Download the route and the logs module values:
 
 ```bash
 curl -fsSL -o upgrade-backup/opensearch-tls-route.yaml \
   https://raw.githubusercontent.com/wso2/agent-manager/amp/v2026.11.0/deployments/values/opensearch-tls-route.yaml
-kubectl --context "$OC_CONTEXT" apply -f upgrade-backup/opensearch-tls-route.yaml
 curl -fsSL -o upgrade-backup/observability-logs-opensearch.yaml \
   https://raw.githubusercontent.com/wso2/agent-manager/amp/v2026.11.0/deployments/values/observability-logs-opensearch.yaml
+```
+
+The values file sets the Fluent Bit OpenSearch host, port 11443, and the SNI hostname. If you changed the listener hostname in the previous step, edit both files now: set `spec.hostnames` in `opensearch-tls-route.yaml` and `fluent-bit.openSearchVHost` in `observability-logs-opensearch.yaml` to the same hostname.
+
+The values file points Fluent Bit at the gateway's in-cluster address, `gateway-default.openchoreo-observability-plane.svc.cluster.local`. Fluent Bit that runs in another cluster cannot resolve it. For each such cluster, set `fluent-bit.openSearchHost` to an address of the Observability Plane gateway that the cluster can reach on port 11443, and keep `fluent-bit.openSearchVHost` set to the listener hostname.
+
+Apply the route, then point the logs module at it:
+
+```bash
+kubectl --context "$OC_CONTEXT" apply -f upgrade-backup/opensearch-tls-route.yaml
 
 helm upgrade observability-logs-opensearch \
   oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
@@ -191,10 +200,6 @@ helm upgrade observability-logs-opensearch \
   --set fluent-bit.enabled=true --timeout 10m
 kubectl --context "$OC_CONTEXT" rollout restart daemonset/fluent-bit -n openchoreo-observability-plane
 ```
-
-The values file sets the Fluent Bit OpenSearch host, port 11443, and the SNI hostname. If you changed the listener hostname in the previous step, use the same hostname in three places before you run these commands: `spec.hostnames` in `upgrade-backup/opensearch-tls-route.yaml`, and `fluent-bit.openSearchVHost` in `upgrade-backup/observability-logs-opensearch.yaml`, in addition to the listener value.
-
-The values file points Fluent Bit at the gateway's in-cluster address, `gateway-default.openchoreo-observability-plane.svc.cluster.local`. Fluent Bit that runs in another cluster cannot resolve it. For each such cluster, set `fluent-bit.openSearchHost` to an address of the Observability Plane gateway that the cluster can reach on port 11443, and keep `fluent-bit.openSearchVHost` set to the listener hostname.
 
 ### Check each plane
 
