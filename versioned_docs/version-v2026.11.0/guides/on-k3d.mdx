@@ -342,11 +342,12 @@ Nothing to change. The charts come from `ghcr.io/wso2`.
 </TabItem>
 <TabItem value="subscription" label="WSO2 Subscription">
 
-Replace `<version>` and `<project>` with your values from [Install with a WSO2 Subscription](./install-with-a-wso2-subscription.mdx). The version is `2026.11.0` for the release, or `2026.11.0-u<N>` for update N. Phase 2 uses the same username and token to create the image pull secret.
+Replace `<version>` and `<project>` with your values from [Install with a WSO2 Subscription](./install-with-a-wso2-subscription.mdx). The version is `2026.11.0` for the release, or `2026.11.0-u<N>` for update N. `GATEWAY_REGISTRY` is where Phase 2 pulls the API Platform gateway from, and Phase 2 uses the same username and token to create the image pull secrets.
 
 ```bash
 export VERSION="<version>"
-export HELM_CHART_REGISTRY="registry.wso2.com/<project>/helm-charts"
+export HELM_CHART_REGISTRY="registry.wso2.com/<project>/sts/helm-charts"
+export GATEWAY_REGISTRY="registry.wso2.com/<project>/sts"
 printf 'Registry username: ' && read -r AMP_REGISTRY_USERNAME
 printf 'Registry token: ' && stty -echo && read -r AMP_REGISTRY_PASSWORD; stty echo; echo
 printf '%s' "$AMP_REGISTRY_PASSWORD" | helm registry login registry.wso2.com --username "$AMP_REGISTRY_USERNAME" --password-stdin
